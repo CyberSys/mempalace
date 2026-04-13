@@ -61,11 +61,28 @@ mkdir -p "$STATE_DIR"
 # Leave empty to skip auto-ingest (AI handles saving via the block reason).
 MEMPAL_DIR=""
 
+# Resolve the Python interpreter the hook should use.
+#
+# Why this is nontrivial: GUI-launched Claude Code on macOS (or any harness
+# that doesn't inherit the user's shell PATH) may find a `python3` on PATH
+# that lacks mempalace — e.g. /usr/bin/python3 while the user installed
+# mempalace into a venv or pyenv. Users in that situation can point the
+# hook at the right interpreter by exporting MEMPAL_PYTHON.
+#
+# Resolution order (first hit wins):
+#   1. $MEMPAL_PYTHON          — explicit user override (absolute path)
+#   2. $(command -v python3)   — first python3 on the hook's PATH
+#   3. bare "python3"          — last-resort fallback (hope the PATH has it)
+MEMPAL_PYTHON_BIN="${MEMPAL_PYTHON:-}"
+if [ -z "$MEMPAL_PYTHON_BIN" ] || [ ! -x "$MEMPAL_PYTHON_BIN" ]; then
+    MEMPAL_PYTHON_BIN="$(command -v python3 2>/dev/null || echo python3)"
+fi
+
 # Read JSON input from stdin
 INPUT=$(cat)
 
 # Parse all fields in a single Python call (3x faster than separate invocations)
-eval $(echo "$INPUT" | python3 -c "
+eval $(echo "$INPUT" | "$MEMPAL_PYTHON_BIN" -c "
 import sys, json
 data = json.load(sys.stdin)
 sid = data.get('session_id', 'unknown')
@@ -92,7 +109,7 @@ fi
 # Count human messages in the JSONL transcript
 # SECURITY: Pass transcript path as sys.argv to avoid shell injection via crafted paths
 if [ -f "$TRANSCRIPT_PATH" ]; then
-    EXCHANGE_COUNT=$(python3 - "$TRANSCRIPT_PATH" <<'PYEOF'
+    EXCHANGE_COUNT=$("$MEMPAL_PYTHON_BIN" - "$TRANSCRIPT_PATH" <<'PYEOF'
 import json, sys
 count = 0
 with open(sys.argv[1]) as f:
@@ -137,7 +154,14 @@ if [ "$SINCE_LAST" -ge "$SAVE_INTERVAL" ] && [ "$EXCHANGE_COUNT" -gt 0 ]; then
     if [ -n "$MEMPAL_DIR" ] && [ -d "$MEMPAL_DIR" ]; then
         SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
         REPO_DIR="$(dirname "$SCRIPT_DIR")"
-        python3 -m mempalace mine "$MEMPAL_DIR" >> "$STATE_DIR/hook.log" 2>&1 &
+        # Sanity-check the resolved interpreter can import mempalace before
+        # we fire-and-forget. Without this, a bad PATH results in silent
+        # failures logged deep in hook.log where users never look.
+        if ! "$MEMPAL_PYTHON_BIN" -c "import mempalace" 2>/dev/null; then
+            echo "[$(date '+%H:%M:%S')] WARN: $MEMPAL_PYTHON_BIN cannot import mempalace — skipping auto-ingest. Set MEMPAL_PYTHON=/path/to/your/python to fix." >> "$STATE_DIR/hook.log"
+        else
+            "$MEMPAL_PYTHON_BIN" -m mempalace mine "$MEMPAL_DIR" >> "$STATE_DIR/hook.log" 2>&1 &
+        fi
     fi
 
     # Notify the AI that a checkpoint happened — but do NOT ask it to write

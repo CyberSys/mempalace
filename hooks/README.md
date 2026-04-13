@@ -137,6 +137,27 @@ Example output:
 
 **Hooks require session restart after install.** Claude Code loads hooks from `settings.json` at session start only. If you run `mempalace init` or manually edit hook config mid-session, the hooks won't fire until you restart Claude Code. This is a Claude Code limitation.
 
+**Hooks may need `MEMPAL_PYTHON` on macOS GUI launches.** When Claude Code (or any harness) is launched from a GUI — `open -a`, Spotlight, the dock — its `PATH` is the minimal `/usr/bin:/bin:/usr/sbin:/sbin` inherited from `launchd`, not your shell PATH. A `python3` found on that PATH is typically the system Python, which usually does not have `mempalace` installed. The hook logs a clear warning when this happens:
+
+```
+WARN: /usr/bin/python3 cannot import mempalace — skipping auto-ingest. Set MEMPAL_PYTHON=/path/to/your/python to fix.
+```
+
+To fix it, point the hook at the Python where you installed `mempalace`. For example, if you installed into a venv:
+
+```bash
+# in your shell or the hook's environment
+export MEMPAL_PYTHON="$HOME/.venvs/mempalace/bin/python"
+```
+
+Or, if you installed with `pipx` / `pip --user`:
+
+```bash
+export MEMPAL_PYTHON="$(command -v mempalace | xargs -I{} dirname {})/python"
+```
+
+Resolution priority inside the hook: `$MEMPAL_PYTHON` (if set and executable) → `$(command -v python3)` → bare `python3`.
+
 ## Cost
 
 **Zero extra tokens.** The hooks notify the AI that saves happened in the background — the AI doesn't need to write anything in the chat. All filing is handled automatically. Previous versions asked the AI to write diary entries and drawer content in the chat window, which cost ~$1/session in retransmitted tokens.

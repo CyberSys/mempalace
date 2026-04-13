@@ -54,10 +54,17 @@ mkdir -p "$STATE_DIR"
 # Leave empty to skip auto-ingest (AI handles saving via the block reason).
 MEMPAL_DIR=""
 
+# Resolve the Python interpreter. Same contract as mempal_save_hook.sh:
+# MEMPAL_PYTHON (explicit override) → $(command -v python3) → bare python3.
+MEMPAL_PYTHON_BIN="${MEMPAL_PYTHON:-}"
+if [ -z "$MEMPAL_PYTHON_BIN" ] || [ ! -x "$MEMPAL_PYTHON_BIN" ]; then
+    MEMPAL_PYTHON_BIN="$(command -v python3 2>/dev/null || echo python3)"
+fi
+
 # Read JSON input from stdin
 INPUT=$(cat)
 
-SESSION_ID=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('session_id','unknown'))" 2>/dev/null)
+SESSION_ID=$(echo "$INPUT" | "$MEMPAL_PYTHON_BIN" -c "import sys,json; print(json.load(sys.stdin).get('session_id','unknown'))" 2>/dev/null)
 
 echo "[$(date '+%H:%M:%S')] PRE-COMPACT triggered for session $SESSION_ID" >> "$STATE_DIR/hook.log"
 
@@ -65,7 +72,11 @@ echo "[$(date '+%H:%M:%S')] PRE-COMPACT triggered for session $SESSION_ID" >> "$
 if [ -n "$MEMPAL_DIR" ] && [ -d "$MEMPAL_DIR" ]; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     REPO_DIR="$(dirname "$SCRIPT_DIR")"
-    python3 -m mempalace mine "$MEMPAL_DIR" >> "$STATE_DIR/hook.log" 2>&1
+    if ! "$MEMPAL_PYTHON_BIN" -c "import mempalace" 2>/dev/null; then
+        echo "[$(date '+%H:%M:%S')] WARN: $MEMPAL_PYTHON_BIN cannot import mempalace — skipping pre-compact ingest. Set MEMPAL_PYTHON=/path/to/your/python to fix." >> "$STATE_DIR/hook.log"
+    else
+        "$MEMPAL_PYTHON_BIN" -m mempalace mine "$MEMPAL_DIR" >> "$STATE_DIR/hook.log" 2>&1
+    fi
 fi
 
 # Notify — compaction is about to happen but filing is handled in background
