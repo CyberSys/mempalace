@@ -1,6 +1,15 @@
 # Changelog
 
-All notable changes to [MemPalace](https://github.com/milla-jovovich/mempalace) are documented in this file.
+All notable changes to [MemPalace](https://github.com/MemPalace/mempalace) are documented in this file.
+
+Entries under `[Unreleased]` accumulate on `develop` and are promoted to a dated section when the next version is cut.
+
+---
+
+## [Unreleased]
+
+### Added
+- _(nothing yet — add entries here as PRs land on develop)_
 
 ---
 
