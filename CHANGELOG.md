@@ -4,7 +4,11 @@ All notable changes to [MemPalace](https://github.com/milla-jovovich/mempalace) 
 
 ---
 
-## [Unreleased] — v3.2.0 (on develop)
+## [3.2.0] — 2026-04-13
+
+### Packaging
+- Remove `chromadb<0.7` upper bound — unblocks installs against chromadb 1.x palaces (#690)
+- Bump version to 3.2.0 across `pyproject.toml`, `mempalace/version.py`, README badge, and OpenClaw SKILL (#761)
 
 ### Security
 - Harden palace deletion, WAL redaction, and MCP search input handling (#739)
@@ -13,6 +17,11 @@ All notable changes to [MemPalace](https://github.com/milla-jovovich/mempalace) 
 - Remove global SSL verification bypass in convomem_bench (#176)
 
 ### Bug Fixes
+- Parse Claude.ai privacy export with `messages` key and sender field (#685, #677)
+- Detect mtime changes in `_get_client` to prevent stale HNSW index (#757)
+- Hash full content in `tool_add_drawer` drawer ID — stable re-mines (#716)
+- Remove 10k drawer cap from status display (#707, #603)
+- Correct typo in entity_detector interactive classification prompt (#755)
 - Prevent convo_miner from re-processing 0-chunk files on every run (#732, #654)
 - Remove silent 8-line AI response truncation in convo_miner (#708, #692)
 - Store full AI response in convo_miner exchange chunking (#695)
@@ -38,6 +47,9 @@ All notable changes to [MemPalace](https://github.com/milla-jovovich/mempalace) 
 - Remove duplicate cache variable declarations in mcp_server.py (#449)
 - Add `--yes` flag to init instructions for non-interactive use (#682, #534)
 - Add `mcp` command with setup guidance (#315)
+
+### Documentation
+- Fix misaligned architecture diagram (#734, #733)
 
 ### New Features
 - i18n support — 8 languages (en, es, fr, de, ja, ko, zh-CN, zh-TW) (#718)
